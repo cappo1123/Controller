@@ -1332,69 +1332,74 @@ if isAlt then
 
         elseif CurrentMode == "haunted" then
             local distToTarget = (myRoot.Position - targetRoot.Position).Magnitude
-            
-            local cycleDuration = 6
+
+            local cycleDuration = 8
             local currentCycle = math.floor(tick() / cycleDuration)
             local timeInCycle = tick() % cycleDuration
-            
-            -- Allow ~half the alts to creep at a time using alternating groups
-            local groupSize = math.max(1, math.ceil(TotalAlts / 2))
-            local groupIndex = ((currentCycle * 3) % math.max(TotalAlts, 1))
-            local amICreeping = ((altIndexOffset - 1 - groupIndex) % math.max(TotalAlts, 1)) < groupSize and (timeInCycle < 4)
-            
+
+            -- Staggered creeping: each alt creeps on its own offset cycle
+            local altPhaseOffset = (altIndexOffset - 1) / math.max(TotalAlts, 1) * cycleDuration
+            local myTimeInCycle = (tick() + altPhaseOffset) % cycleDuration
+            local amICreeping = myTimeInCycle < 5.5
+
             if amICreeping then
                 hauntedPhase = "creeping"
             else
                 hauntedPhase = "idle"
             end
-            
-            local idleRadius = 6
+
+            -- Idle radius shrinks over time so alts drift closer
+            local baseIdleRadius = math.clamp(distToTarget * 0.45, 3, 8)
             local idleAngle = MathCache.auraPhaseOffset
             idleAngle = idleAngle + math.sin(tick() * 0.15 + altIndexOffset) * 0.3
-            local idlePos = targetRoot.Position + Vector3.new(math.cos(idleAngle) * idleRadius, 0, math.sin(idleAngle) * idleRadius)
-            
+            local idlePos = targetRoot.Position + Vector3.new(math.cos(idleAngle) * baseIdleRadius, 0, math.sin(idleAngle) * baseIdleRadius)
+
             if distToTarget > 20 then
                 -- Far away: sprint to close the gap
                 myHumanoid.WalkSpeed = 24
                 myHumanoid.AutoRotate = true
                 myHumanoid:MoveTo(targetRoot.Position)
-                
-            elseif distToTarget < 4 then
-                -- Very close: stop and stare
+
+            elseif distToTarget < 3 then
+                -- Very close: stop and stare creepily
                 myHumanoid.WalkSpeed = 16
                 myHumanoid.AutoRotate = false
                 myHumanoid:MoveTo(myRoot.Position)
-                
+
                 local lookTarget = Vector3.new(targetRoot.Position.X, myRoot.Position.Y, targetRoot.Position.Z)
                 if (lookTarget - myRoot.Position).Magnitude > 0.01 then
                     myRoot.CFrame = CFrame.lookAt(myRoot.Position, lookTarget)
                 end
-                
+
             elseif hauntedPhase == "creeping" then
-                -- Creeping: slowly approach
-                myHumanoid.WalkSpeed = 6
+                -- Creeping: slowly close the distance toward the target
+                local creepSpeed = math.clamp(distToTarget * 0.6, 4, 10)
+                myHumanoid.WalkSpeed = creepSpeed
                 myHumanoid.AutoRotate = false
-                myHumanoid:MoveTo(targetRoot.Position)
-                
+
+                -- Walk toward a point slightly offset from the target (not all stacking on top)
+                local creepAngle = MathCache.auraPhaseOffset
+                local creepOffset = Vector3.new(math.cos(creepAngle) * 1.5, 0, math.sin(creepAngle) * 1.5)
+                myHumanoid:MoveTo(targetRoot.Position + creepOffset)
+
                 local lookTarget = Vector3.new(targetRoot.Position.X, myRoot.Position.Y, targetRoot.Position.Z)
                 if (lookTarget - myRoot.Position).Magnitude > 0.01 then
                     myRoot.CFrame = CFrame.lookAt(myRoot.Position, lookTarget)
                 end
-                
+
             else
-                -- Idle: stand at idle radius and stare, but scale speed based on distance
-                -- so alts can actually keep up with a moving target
+                -- Idle pause: hold position briefly but stay close, face target
                 local distToIdlePos = (myRoot.Position - idlePos).Magnitude
-                if distToIdlePos > 2 then
-                    local catchUpSpeed = math.clamp(distToIdlePos * 1.5, 10, 20)
+                if distToIdlePos > 1.5 then
+                    local catchUpSpeed = math.clamp(distToIdlePos * 2, 8, 20)
                     myHumanoid.WalkSpeed = catchUpSpeed
                     myHumanoid.AutoRotate = false
                     myHumanoid:MoveTo(idlePos)
                 else
-                    myHumanoid.WalkSpeed = 16
+                    myHumanoid.WalkSpeed = 0
                     myHumanoid:MoveTo(myRoot.Position)
                 end
-                
+
                 local lookTarget = Vector3.new(targetRoot.Position.X, myRoot.Position.Y, targetRoot.Position.Z)
                 if (lookTarget - myRoot.Position).Magnitude > 0.01 then
                     myRoot.CFrame = CFrame.lookAt(myRoot.Position, lookTarget)
