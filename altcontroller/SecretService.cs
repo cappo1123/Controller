@@ -654,7 +654,7 @@ namespace SecretServicePanel
             cmdGroups["Basic"] = new[] { "jump", "stop", "reset", "bring" };
             cmdGroups["Formations"] = new[] { "worm", "vform", "army", "flank", "circlein", "circleout" };
             cmdGroups["Movement"] = new[] { "spin", "swarm", "orbit", "tornado", "panic", "goto" };
-            cmdGroups["Structures"] = new[] { "stack", "mech", "alt mech", "elevator", "carpet", "ufo", "pillar", "motorcycle", "heli", "jumba", "aura" };
+            cmdGroups["Structures"] = new[] { "stack", "mech", "alt mech", "elevator", "carpet", "ufo", "pillar", "motorcycle", "car", "heli", "jumba", "aura" };
             cmdGroups["Combat"] = new[] { "bodyguard", "stalk", "allfling", "fling", "haunted" };
             cmdGroups["Inventory"] = new[] { "equip1" };
 

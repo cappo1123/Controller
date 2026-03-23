@@ -58,6 +58,9 @@ local ControlMoveDir = Vector3.zero
 local SingleFlingTarget = nil
 local ActiveBurnout = false
 local MechPredictFactor = 0.41
+local CarPredictFactor = 0.41
+local CAR_ELEVATION = 5
+local CAR_SPEED = 28
 local hauntedPhase = "idle"
 local hauntedTimer = math.random() * 5 + 2
 
@@ -205,13 +208,13 @@ local function StopAllActions(incomingMode)
         local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
         if myRoot then
             myRoot.Anchored = false
-            if incomingMode ~= "ufo" and incomingMode ~= "carpet" and incomingMode ~= "elevator" and incomingMode ~= "motorcycle" and incomingMode ~= "orbit" and incomingMode ~= "mech" and incomingMode ~= "altmech" and incomingMode ~= "tornado" and incomingMode ~= "stack" and incomingMode ~= "pillar" and incomingMode ~= "heli" and incomingMode ~= "aura" and incomingMode ~= "jumba" then
+            if incomingMode ~= "ufo" and incomingMode ~= "carpet" and incomingMode ~= "elevator" and incomingMode ~= "motorcycle" and incomingMode ~= "orbit" and incomingMode ~= "mech" and incomingMode ~= "altmech" and incomingMode ~= "tornado" and incomingMode ~= "stack" and incomingMode ~= "pillar" and incomingMode ~= "heli" and incomingMode ~= "aura" and incomingMode ~= "jumba" and incomingMode ~= "car" then
                 for _, obj in ipairs(myRoot:GetChildren()) do
                     if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") or obj.Name == "FlingSpin" or obj.Name == "WheelSpin" or obj.Name == "MotoAntiGravity" then
                         obj:Destroy()
                     end
                 end
-            elseif incomingMode == "motorcycle" then
+            elseif incomingMode == "motorcycle" or incomingMode == "car" then
                 for _, obj in ipairs(myRoot:GetChildren()) do
                      if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") or obj.Name == "FlingSpin" or obj.Name == "WheelSpin" then
                          obj:Destroy()
@@ -226,10 +229,11 @@ local function StopAllActions(incomingMode)
             end
             
             myRoot:SetAttribute("MotoCollOff", nil)
+            myRoot:SetAttribute("CarCollOff", nil)
         end
         local myHumanoid = myCharacter:FindFirstChildOfClass("Humanoid")
         if myHumanoid and myRoot then
-            if incomingMode ~= "ufo" and incomingMode ~= "carpet" and incomingMode ~= "elevator" and incomingMode ~= "motorcycle" and incomingMode ~= "orbit" and incomingMode ~= "mech" and incomingMode ~= "altmech" and incomingMode ~= "tornado" and incomingMode ~= "stack" and incomingMode ~= "pillar" and incomingMode ~= "heli" and incomingMode ~= "aura" and incomingMode ~= "jumba" then
+            if incomingMode ~= "ufo" and incomingMode ~= "carpet" and incomingMode ~= "elevator" and incomingMode ~= "motorcycle" and incomingMode ~= "orbit" and incomingMode ~= "mech" and incomingMode ~= "altmech" and incomingMode ~= "tornado" and incomingMode ~= "stack" and incomingMode ~= "pillar" and incomingMode ~= "heli" and incomingMode ~= "aura" and incomingMode ~= "jumba" and incomingMode ~= "car" then
                 myHumanoid.PlatformStand = false
             end
             myHumanoid.WalkSpeed = 16
@@ -627,6 +631,11 @@ PrefixCommands["mech"] = function(cmd, cmdLower)
 end
 
 
+PrefixCommands["car"] = function(cmd, cmdLower)
+    SetupFormation(cmd, "car", 4, "Car ON.")
+    SetupFloatingBody(true)
+end
+
 PrefixCommands["motorcycle"] = function(cmd, cmdLower)
     SetupFormation(cmd, "motorcycle", 11, "Motorcycle ON.")
     SetupFloatingBody(true)
@@ -909,7 +918,7 @@ if isAlt then
                 myHumanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
             end
             
-            if CurrentMode == "ufo" or CurrentMode == "carpet" or CurrentMode == "elevator" or CurrentMode == "motorcycle" or CurrentMode == "orbit" or CurrentMode == "mech" or CurrentMode == "altmech" or CurrentMode == "tornado" or CurrentMode == "stack" or CurrentMode == "pillar" or CurrentMode == "heli" then return end
+            if CurrentMode == "ufo" or CurrentMode == "carpet" or CurrentMode == "elevator" or CurrentMode == "motorcycle" or CurrentMode == "orbit" or CurrentMode == "mech" or CurrentMode == "altmech" or CurrentMode == "tornado" or CurrentMode == "stack" or CurrentMode == "pillar" or CurrentMode == "heli" or CurrentMode == "car" then return end
             
             if seatWeldConnection then
                 seatWeldConnection:Disconnect()
@@ -1722,6 +1731,120 @@ if isAlt then
                 myHumanoid:MoveTo(followPos)
             end
 
+        elseif CurrentMode == "car" then
+            -- Car mode: first 4 alts are wheels, rest form a flat platform underneath
+            local velocity = targetRoot.AssemblyLinearVelocity
+            local horizontalVel = Vector3.new(velocity.X, 0, velocity.Z)
+            local isMoving = horizontalVel.Magnitude > 0.5
+
+            local forwardOffset = Vector3.zero
+            if isMoving then
+                forwardOffset = horizontalVel * CarPredictFactor
+            end
+
+            local rawCF = targetRoot.CFrame
+            local lookDir = rawCF.LookVector
+            local flatLook = Vector3.new(lookDir.X, 0, lookDir.Z)
+
+            local predictedPos = rawCF.Position + forwardOffset
+            local leaderCF
+            if flatLook.Magnitude > 0.01 then
+                leaderCF = CFrame.lookAt(predictedPos, predictedPos + flatLook)
+            else
+                leaderCF = CFrame.new(predictedPos)
+            end
+
+            if altIndexOffset <= 4 then
+                -- Wheels: 4 corners
+                local wheelX = (altIndexOffset <= 2) and -3.5 or 3.5  -- front or back
+                local wheelZ = (altIndexOffset % 2 == 1) and -2.5 or 2.5  -- left or right
+                local wheelY = -4.5
+
+                local slotCF = leaderCF * CFrame.new(wheelZ, wheelY, wheelX)
+
+                -- Spin wheels based on speed
+                local wheelAngle = myRoot:GetAttribute("WheelAngle") or 0
+                local speed = horizontalVel.Magnitude
+                if speed > 1 then
+                    wheelAngle = wheelAngle - (speed / 2.5) * dt
+                end
+                myRoot:SetAttribute("WheelAngle", wheelAngle)
+
+                local spinAxis = leaderCF.RightVector
+                myRoot.CFrame = CFrame.lookAt(slotCF.Position, slotCF.Position + leaderCF.LookVector) * CFrame.Angles(wheelAngle, 0, 0)
+
+                if not myRoot:GetAttribute("CarCollOff") then
+                    myRoot:SetAttribute("CarCollOff", true)
+                    for _, child in ipairs(myRoot.Parent:GetChildren()) do
+                        if child:IsA("BasePart") then
+                            child.CanCollide = false
+                        elseif child:IsA("Accessory") then
+                            local handle = child:FindFirstChild("Handle")
+                            if handle and handle:IsA("BasePart") then handle.CanCollide = false end
+                        end
+                    end
+                end
+
+                local antiGravity = myRoot:FindFirstChild("MotoAntiGravity")
+                if not antiGravity then
+                    antiGravity = Instance.new("BodyVelocity")
+                    antiGravity.Name = "MotoAntiGravity"
+                    antiGravity.MaxForce = Vector3.new(0, 1e6, 0)
+                    antiGravity.Velocity = Vector3.zero
+                    antiGravity.P = 1250
+                    antiGravity.Parent = myRoot
+                end
+                if antiGravity then
+                    antiGravity.Velocity = horizontalVel
+                end
+
+            else
+                -- Platform alts: form a flat grid underneath the main account
+                local platIndex = altIndexOffset - 4
+                local platCols = 3
+                local platSpacingX = 3.5
+                local platSpacingZ = 3.5
+                local platY = -3.5
+
+                local gridRow = math.floor((platIndex - 1) / platCols)
+                local gridCol = ((platIndex - 1) % platCols)
+                local itemsInRow = platCols
+                local totalRows = math.ceil((TotalAlts - 4) / platCols)
+                if totalRows < 1 then totalRows = 1 end
+                local lastRowItems = (TotalAlts - 4) % platCols
+                if lastRowItems == 0 and (TotalAlts - 4) > 0 then lastRowItems = platCols end
+                if gridRow == totalRows - 1 then itemsInRow = lastRowItems end
+
+                local xOff = (gridCol - (itemsInRow - 1) / 2) * platSpacingX
+                local zOff = (gridRow - (totalRows - 1) / 2) * platSpacingZ
+
+                local targetPos = (leaderCF * CFrame.new(xOff, platY, zOff)).Position
+
+                local bp = myRoot:FindFirstChildOfClass("BodyPosition")
+                if bp then
+                    bp.Position = targetPos
+                else
+                    bp = Instance.new("BodyPosition")
+                    bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bp.D = 2000
+                    bp.P = 50000
+                    bp.Position = targetPos
+                    bp.Parent = myRoot
+                end
+
+                local bg = myRoot:FindFirstChildOfClass("BodyGyro")
+                if bg then
+                    bg.CFrame = leaderCF
+                else
+                    bg = Instance.new("BodyGyro")
+                    bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+                    bg.CFrame = leaderCF
+                    bg.Parent = myRoot
+                end
+            end
+
+            myHumanoid.PlatformStand = true
+
         elseif CurrentMode == "elevator" or CurrentMode == "carpet" then
             local cols = math.ceil(math.sqrt(TotalAlts))
             if TotalAlts >= 5 and TotalAlts <= 9 then cols = 3 end
@@ -2420,6 +2543,157 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
         hum.PlatformStand = true
     end))
     
+    local carActive = false
+
+    local function InjectSitScript()
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if not backpack then return end
+        if backpack:FindFirstChild("E To Sit") then return end
+
+        local ls = Instance.new("LocalScript")
+        ls.Name = "E To Sit"
+        ls.Parent = backpack
+        -- The script runs in backpack context, parent.Parent = player
+    end
+
+    local function RemoveSitScript()
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            local sit = backpack:FindFirstChild("E To Sit")
+            if sit then sit:Destroy() end
+        end
+    end
+
+    local function ActivateCarOnSelf()
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if root and hum then
+            RefreshMechRayFilter()
+
+            for _, obj in ipairs(root:GetChildren()) do
+                if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
+            end
+
+            local bp = Instance.new("BodyPosition")
+            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bp.D = 2000
+            bp.P = 50000
+            bp.Position = root.Position + Vector3.new(0, CAR_ELEVATION, 0)
+            bp.Parent = root
+
+            local bg = Instance.new("BodyGyro")
+            bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+            bg.CFrame = root.CFrame
+            bg.Parent = root
+
+            -- Sit the player using E key
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+
+            -- Inject the E-to-sit script
+            local player = LocalPlayer
+            local mouse = player:GetMouse()
+            local sitConn
+            sitConn = mouse.KeyDown:Connect(function(key)
+                if not carActive then
+                    if sitConn then sitConn:Disconnect() end
+                    return
+                end
+                if key == "e" then
+                    hum.Sit = true
+                end
+            end)
+            TrackConnection(sitConn)
+
+            hum.Sit = true
+
+            carActive = true
+            print("[Alt Controller] Car: Driving mode engaged. Press E to sit.")
+        end
+    end
+
+    local function DeactivateCarOnSelf()
+        carActive = false
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if root then
+            for _, obj in ipairs(root:GetChildren()) do
+                if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
+            end
+        end
+        if hum then
+            hum.Sit = false
+            hum.PlatformStand = false
+            hum.WalkSpeed = 16
+            hum.AutoRotate = true
+            hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+            if hum:GetState() == Enum.HumanoidStateType.PlatformStanding or hum:GetState() == Enum.HumanoidStateType.Seated then
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+        print("[Alt Controller] Car: Dismounted.")
+    end
+
+    TrackConnection(RunService.Heartbeat:Connect(function(dt)
+        if not carActive then return end
+
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not root or not hum or hum.Health <= 0 then return end
+
+        local bp = root:FindFirstChildOfClass("BodyPosition")
+        local bg = root:FindFirstChildOfClass("BodyGyro")
+        if not bp or not bg then return end
+
+        if tick() - lastRayFilterRefresh > 1 then
+            lastRayFilterRefresh = tick()
+            RefreshMechRayFilter()
+        end
+
+        local moveDir = Vector3.zero
+        if not commandBarInput:IsFocused() then
+            local cam = workspace.CurrentCamera
+            local camLook = cam.CFrame.LookVector
+            local camRight = cam.CFrame.RightVector
+
+            camLook = Vector3.new(camLook.X, 0, camLook.Z)
+            if camLook.Magnitude > 0 then camLook = camLook.Unit end
+            camRight = Vector3.new(camRight.X, 0, camRight.Z)
+            if camRight.Magnitude > 0 then camRight = camRight.Unit end
+
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camLook end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camLook end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camRight end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camRight end
+        end
+
+        if moveDir.Magnitude > 0 then
+            moveDir = moveDir.Unit
+        end
+
+        local rayOrigin = Vector3.new(bp.Position.X, bp.Position.Y + 20, bp.Position.Z)
+        local rayResult = workspace:Raycast(rayOrigin, Vector3.new(0, -100, 0), mechRayParams)
+        local groundY = rayResult and rayResult.Position.Y or 0
+
+        local currentPos = bp.Position
+        local newX = currentPos.X + (moveDir.X * CAR_SPEED * dt)
+        local newZ = currentPos.Z + (moveDir.Z * CAR_SPEED * dt)
+        local newY = groundY + CAR_ELEVATION
+
+        bp.Position = Vector3.new(newX, newY, newZ)
+
+        if moveDir.Magnitude > 0 then
+            bg.CFrame = CFrame.lookAt(root.Position, root.Position + moveDir)
+        end
+
+        -- Keep seated
+        if not hum.Sit then
+            hum.Sit = true
+        end
+    end))
+
     local elevatorActive = false
     local carpetActive = false
     local ELEVATOR_RISE_SPEED = 3
@@ -2712,6 +2986,10 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
             motoYaw = 0
             print("[Alt Controller] Motorcycle: Respawned, deactivated.")
         end
+        if carActive then
+            carActive = false
+            print("[Alt Controller] Car: Respawned, deactivated.")
+        end
     end))
     
     local function ShowNotification(msg)
@@ -2756,6 +3034,26 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
         end
         
         
+        if string.sub(cmdLower, 1, 10) == "carpredict" then
+            local numStr = string.match(string.sub(cmdLower, 11), "^%s*(.-)%s*$")
+            local val = tonumber(numStr)
+            if val then
+                CarPredictFactor = val
+                ShowNotification("Car Predict set to " .. tostring(val))
+            else
+                ShowNotification("Car Predict is " .. tostring(CarPredictFactor))
+            end
+            return true
+        end
+
+        if string.sub(cmdLower, 1, 3) == "car" and string.sub(cmdLower, 1, 6) ~= "carpet" then
+            DeactivateMechOnSelf()
+            DeactivateElevatorOnSelf()
+            DeactivateMotorcycleOnSelf()
+            ActivateCarOnSelf()
+            return false
+        end
+
         if string.sub(cmdLower, 1, 11) == "mechpredict" then
             local numStr = string.match(string.sub(cmdLower, 12), "^%s*(.-)%s*$")
             local val = tonumber(numStr)
@@ -2771,6 +3069,7 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
         if string.sub(cmdLower, 1, 4) == "mech" then
             DeactivateElevatorOnSelf()
             DeactivateMotorcycleOnSelf()
+            DeactivateCarOnSelf()
             if cmdLower ~= "mech p" then
                 ActivateMechOnSelf()
             else
@@ -2779,23 +3078,26 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
             end
             return false
         end
-        
+
         if cmdLower == "elevator" then
             DeactivateMechOnSelf()
             DeactivateMotorcycleOnSelf()
+            DeactivateCarOnSelf()
             ActivateElevatorOnSelf(false)
             return false
         end
-        
+
         if cmdLower == "carpet" or cmdLower == "aladdin" then
             DeactivateMechOnSelf()
             DeactivateMotorcycleOnSelf()
+            DeactivateCarOnSelf()
             ActivateElevatorOnSelf(true)
             return false
         end
 
         if cmdLower == "ufo" then
             DeactivateMechOnSelf()
+            DeactivateCarOnSelf()
             DeactivateMotorcycleOnSelf()
             ActivateElevatorOnSelf(true)
             CurrentMode = "ufo"
@@ -2805,15 +3107,17 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
         if string.sub(cmdLower, 1, 10) == "motorcycle" or string.sub(cmdLower, 1, 4) == "bike" then
             DeactivateMechOnSelf()
             DeactivateElevatorOnSelf()
+            DeactivateCarOnSelf()
             ActivateMotorcycleOnSelf()
             ShowNotification("Motorcycle: WASD to drive, W+S for burnout")
             return false
         end
-        
+
         if cmdLower == "stop" then
             DeactivateMechOnSelf()
             DeactivateElevatorOnSelf()
             DeactivateMotorcycleOnSelf()
+            DeactivateCarOnSelf()
             -- Do not return true here, because we WANT the command to fall through and broadcast "stop" to the alts
         end
         
