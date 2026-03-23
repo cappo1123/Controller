@@ -57,6 +57,7 @@ local ControlMoveDir = Vector3.zero
 
 local SingleFlingTarget = nil
 local ActiveBurnout = false
+local MechPredictFactor = 0.41
 local hauntedPhase = "idle"
 local hauntedTimer = math.random() * 5 + 2
 
@@ -624,6 +625,7 @@ PrefixCommands["mech"] = function(cmd, cmdLower)
     local myOffset = math.max(1, MyIndex - 1)
     if myOffset <= 7 then SetupFloatingBody(true) end
 end
+
 
 PrefixCommands["motorcycle"] = function(cmd, cmdLower)
     SetupFormation(cmd, "motorcycle", 11, "Motorcycle ON.")
@@ -1656,7 +1658,7 @@ if isAlt then
             
             local forwardOffset = Vector3.zero
             if isMoving then
-                local predictFactor = 0.41
+                local predictFactor = MechPredictFactor
                 forwardOffset = horizontalVel * predictFactor
             end
             
@@ -2064,7 +2066,7 @@ if isAlt then
                 
                 local forwardOffset = Vector3.zero
                 if horizontalVel.Magnitude > 1 then
-                    local predictFactor = 0.41
+                    local predictFactor = MechPredictFactor
                     forwardOffset = horizontalVel * predictFactor
                 end
                 
@@ -2754,6 +2756,18 @@ elseif string.lower(LocalPlayer.Name) == string.lower(Config.MainAccount) then
         end
         
         
+        if string.sub(cmdLower, 1, 11) == "mechpredict" then
+            local numStr = string.match(string.sub(cmdLower, 12), "^%s*(.-)%s*$")
+            local val = tonumber(numStr)
+            if val then
+                MechPredictFactor = val
+                ShowNotification("Mech Predict set to " .. tostring(val))
+            else
+                ShowNotification("Mech Predict is " .. tostring(MechPredictFactor))
+            end
+            return true
+        end
+
         if string.sub(cmdLower, 1, 4) == "mech" then
             DeactivateElevatorOnSelf()
             DeactivateMotorcycleOnSelf()
