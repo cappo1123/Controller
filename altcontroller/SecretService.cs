@@ -13,36 +13,36 @@ using System.Runtime.InteropServices;
 
 namespace SecretServicePanel
 {
-    // ── Colour palette ──────────────────────────────────────────────
+    // ── Colour palette (Claude style) ──────────────────────────────
     static class Theme
     {
-        public static readonly Color BgDeep       = Color.FromArgb(10, 10, 10);
-        public static readonly Color BgPanel      = Color.FromArgb(15, 15, 15);
-        public static readonly Color BgSurface    = Color.FromArgb(22, 22, 22);
-        public static readonly Color BgInput      = Color.FromArgb(20, 20, 20);
-        public static readonly Color Border       = Color.FromArgb(35, 35, 35);
-        public static readonly Color BorderLight  = Color.FromArgb(45, 45, 45);
-        public static readonly Color Accent       = Color.FromArgb(0, 255, 128);   // Vibrant Terminal Green
-        public static readonly Color AccentHover  = Color.FromArgb(50, 255, 170);  // Lighter Green
-        public static readonly Color AccentDim    = Color.FromArgb(0, 180, 90);    // Darker Green
-        public static readonly Color Danger       = Color.FromArgb(220, 50, 50);
-        public static readonly Color Success      = Color.FromArgb(0, 255, 128);
-        public static readonly Color TextPrimary  = Color.FromArgb(240, 240, 240);
-        public static readonly Color TextSecondary= Color.FromArgb(170, 170, 170);
-        public static readonly Color TextDim      = Color.FromArgb(110, 110, 110);
-        public static readonly Color BtnDefault   = Color.FromArgb(25, 25, 25);
-        public static readonly Color BtnHover     = Color.FromArgb(35, 35, 35);
-        public static readonly Color BtnPressed   = Color.FromArgb(20, 20, 20);
-        public static readonly Color CatLabel     = Color.FromArgb(0, 255, 128);   // Changed to Green
+        public static readonly Color BgDeep       = Color.FromArgb(29, 25, 22);    // Deep warm brown
+        public static readonly Color BgPanel      = Color.FromArgb(42, 37, 33);    // Warm dark panel
+        public static readonly Color BgSurface    = Color.FromArgb(55, 48, 42);    // Warm surface
+        public static readonly Color BgInput      = Color.FromArgb(35, 30, 26);    // Input field bg
+        public static readonly Color Border       = Color.FromArgb(70, 62, 55);    // Warm border
+        public static readonly Color BorderLight  = Color.FromArgb(90, 80, 70);    // Lighter border
+        public static readonly Color Accent       = Color.FromArgb(217, 119, 60);  // Claude orange / terracotta
+        public static readonly Color AccentHover  = Color.FromArgb(235, 145, 90);  // Lighter orange
+        public static readonly Color AccentDim    = Color.FromArgb(180, 95, 45);   // Darker orange
+        public static readonly Color Danger       = Color.FromArgb(220, 60, 60);
+        public static readonly Color Success      = Color.FromArgb(100, 200, 130);
+        public static readonly Color TextPrimary  = Color.FromArgb(237, 227, 215); // Warm white
+        public static readonly Color TextSecondary= Color.FromArgb(180, 168, 155); // Warm grey
+        public static readonly Color TextDim      = Color.FromArgb(130, 118, 105); // Dim warm
+        public static readonly Color BtnDefault   = Color.FromArgb(50, 44, 38);    // Warm button
+        public static readonly Color BtnHover     = Color.FromArgb(65, 57, 50);    // Warm hover
+        public static readonly Color BtnPressed   = Color.FromArgb(40, 35, 30);    // Warm pressed
+        public static readonly Color CatLabel     = Color.FromArgb(217, 119, 60);  // Claude orange
 
-        public static readonly Font  Title        = new Font("Tahoma", 11F, FontStyle.Bold);
-        public static readonly Font  Body         = new Font("Tahoma", 8F);
-        public static readonly Font  BodyBold     = new Font("Tahoma", 8F, FontStyle.Bold);
-        public static readonly Font  Small        = new Font("Tahoma", 7.5F);
-        public static readonly Font  MonoFallback = new Font("Tahoma", 8F);
-        public static readonly Font  BtnFont      = new Font("Tahoma", 8F, FontStyle.Bold);
-        public static readonly Font  CatFont      = new Font("Tahoma", 7F, FontStyle.Bold);
-        public static readonly Font  InputFont    = new Font("Tahoma", 10F);
+        public static readonly Font  Title        = new Font("Segoe UI", 11F, FontStyle.Bold);
+        public static readonly Font  Body         = new Font("Segoe UI", 8.25F);
+        public static readonly Font  BodyBold     = new Font("Segoe UI", 8.25F, FontStyle.Bold);
+        public static readonly Font  Small        = new Font("Segoe UI", 7.5F);
+        public static readonly Font  MonoFallback = new Font("Segoe UI", 8.25F);
+        public static readonly Font  BtnFont      = new Font("Segoe UI Semibold", 8.25F);
+        public static readonly Font  CatFont      = new Font("Segoe UI Semibold", 7F);
+        public static readonly Font  InputFont    = new Font("Segoe UI", 10F);
 
         private static Font _mono;
         public static Font GetMono()
@@ -50,8 +50,8 @@ namespace SecretServicePanel
             if (_mono != null) return _mono;
             try
             {
-                _mono = new Font("Tahoma", 8F);
-                if (_mono.Name != "Tahoma")
+                _mono = new Font("Cascadia Mono", 8.25F);
+                if (_mono.Name != "Cascadia Mono")
                 {
                     _mono.Dispose();
                     _mono = MonoFallback;
@@ -101,7 +101,7 @@ namespace SecretServicePanel
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             g.Clear(Parent != null ? Parent.BackColor : Theme.BgDeep);
 
@@ -113,7 +113,7 @@ namespace SecretServicePanel
             {
                 g.FillPath(brush, path);
 
-                // Green bottom glow on hover — soft upward bleed covering full button
+                // Warm bottom glow on hover — soft upward bleed covering full button
                 if (_hovered && !_pressed)
                 {
                     var oldClip = g.Clip;
@@ -121,16 +121,16 @@ namespace SecretServicePanel
                     {
                         g.SetClip(clipRegion, System.Drawing.Drawing2D.CombineMode.Replace);
 
-                        // Soft glow from top (transparent) to bottom (subtle green)
+                        // Soft glow from top (transparent) to bottom (subtle orange)
                         var glowRect = new Rectangle(0, 0, Width, Height + 1);
                         using (var glowBrush = new LinearGradientBrush(
-                            glowRect, Color.Transparent, Color.FromArgb(35, 0, 255, 128), 90F))
+                            glowRect, Color.Transparent, Color.FromArgb(35, 217, 119, 60), 90F))
                         {
                             g.FillRectangle(glowBrush, glowRect);
                         }
 
-                        // Solid bright green line at the very bottom
-                        using (var pen = new Pen(Color.FromArgb(220, 0, 255, 128), 2))
+                        // Solid bright accent line at the very bottom
+                        using (var pen = new Pen(Color.FromArgb(220, 217, 119, 60), 2))
                             g.DrawLine(pen, 1, Height - 2, Width - 1, Height - 2);
 
                         g.Clip = oldClip;
@@ -144,7 +144,7 @@ namespace SecretServicePanel
                     g.DrawPath(pen, path);
             }
 
-            // text — green on hover
+            // text — accent on hover
             TextRenderer.DrawText(g, Text, Font, new Rectangle(0, 0, Width, Height), _hovered ? Theme.Accent : Color.FromArgb(200, ForeColor),
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
@@ -654,7 +654,7 @@ namespace SecretServicePanel
             cmdGroups["Basic"] = new[] { "jump", "stop", "reset", "bring" };
             cmdGroups["Formations"] = new[] { "worm", "vform", "army", "flank", "circlein", "circleout" };
             cmdGroups["Movement"] = new[] { "spin", "swarm", "orbit", "tornado", "panic", "goto" };
-            cmdGroups["Structures"] = new[] { "stack", "mech", "alt mech", "elevator", "carpet", "ufo", "pillar", "motorcycle", "heli", "jumba", "aura" };
+            cmdGroups["Structures"] = new[] { "stack", "mech", "alt mech", "elevator", "carpet", "ufo", "pillar", "motorcycle", "car", "heli", "jumba", "aura" };
             cmdGroups["Combat"] = new[] { "bodyguard", "stalk", "allfling", "fling", "haunted" };
             cmdGroups["Inventory"] = new[] { "equip1" };
 
@@ -672,7 +672,7 @@ namespace SecretServicePanel
                     btn.Text = cmd;
                     btn.Size = new Size(84, 34);
                     btn.Margin = new Padding(3, 2, 3, 2);
-                    btn.Font = Theme.Small;
+                    btn.Font = Theme.BtnFont;
                     
                     string captured = cmd;
                     btn.Click += (s, e) => SendCommand(captured == "motorcycle" ? "bike" : captured);
