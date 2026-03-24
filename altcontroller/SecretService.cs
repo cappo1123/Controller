@@ -101,7 +101,7 @@ namespace SecretServicePanel
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             g.Clear(Parent != null ? Parent.BackColor : Theme.BgDeep);
 
@@ -672,7 +672,7 @@ namespace SecretServicePanel
                     btn.Text = cmd;
                     btn.Size = new Size(84, 34);
                     btn.Margin = new Padding(3, 2, 3, 2);
-                    btn.Font = Theme.Small;
+                    btn.Font = Theme.BtnFont;
                     
                     string captured = cmd;
                     btn.Click += (s, e) => SendCommand(captured == "motorcycle" ? "bike" : captured);
